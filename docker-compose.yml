@@ -1,0 +1,63 @@
+version: '3'
+services:
+    app:
+        env_file: &env
+            - ./.env
+        container_name: '${PREFIX_CONTAINER}_app'
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: php:8.2-fpm
+        restart: unless-stopped
+        tty: true
+        environment:
+            SERVICE_NAME: app
+            SERVICE_TAGS: dev
+        working_dir: /var/www
+        volumes:
+            - ./:/var/www
+        networks: &network
+            - '${PREFIX_CONTAINER}_network'
+
+    #Nginx Service
+    webserver:
+        env_file: *env
+        image: nginx:alpine
+        container_name: "${PREFIX_CONTAINER}_web"
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./:/var/www
+            - ./.confs/nginx/conf.d/:/etc/nginx/conf.d/
+        depends_on:
+            - app
+            - db
+        networks: *network
+
+    #MySQL Service
+    db:
+        env_file: *env
+        image: 'mysql/mysql-server:8.0'
+        container_name: "${PREFIX_CONTAINER}_db"
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "${DB_PORT:-3306}:3306"
+        environment:
+            MYSQL_DATABASE: "${DB_DATABASE}"
+            MYSQL_USER: "${DB_USERNAME}"
+            MYSQL_PASSWORD: "${DB_PASSWORD}"
+            MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+        volumes:
+            - ./../data/mysql:/var/lib/mysql
+        networks: *network
+
+
+#Docker Networks
+networks:
+    fa_network:
+        driver: bridge
+
+
