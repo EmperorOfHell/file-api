@@ -1,6 +1,5 @@
-# Cryptocurrency-Api
+# File-api
 
-## About
 
 ## Getting started
 
