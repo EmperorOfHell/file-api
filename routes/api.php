@@ -24,8 +24,9 @@ Route::controller(AuthController::class)
         Route::post('register', 'register');
         Route::post('logout', 'logout');
         Route::post('refresh', 'refresh');
+
     });
 
-Route::resource('files', AttachmentController::class);
+Route::resource('files', AttachmentController::class, ['except' => ['create', 'edit']]);
 Route::get('files/{file}/download', [AttachmentController::class, 'download']);
-
+//Route::fallback();

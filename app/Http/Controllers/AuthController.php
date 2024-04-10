@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\JSONFormatter;
+use App\Facades\CustomJsend;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -12,7 +14,7 @@ class AuthController extends Controller
 
     public function __construct()
     {
-        $this->middleware('auth:api', ['except' => ['login', 'register']]);
+        $this->middleware(['throttle:api','auth:api'], ['except' => ['login', 'register']]);
     }
 
     public function login(Request $request)
@@ -25,13 +27,9 @@ class AuthController extends Controller
 
         $token = Auth::attempt($credentials);
         if (!$token) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized',
-            ], 401);
+            return CustomJsend::error('Invalid credentials', 401);
         }
-        return response()->json([
-            'status' => 'success',
+        return CustomJsend::success([
             'authorisation' => [
                 'token' => $token,
                 'type' => 'bearer',
@@ -51,9 +49,8 @@ class AuthController extends Controller
         ]);
 
         $token = Auth::login($user);
-        return response()->json([
-            'status' => 'success',
-            'message' => 'User created successfully',
+
+        return CustomJsend::success([
             'user' => $user,
             'authorisation' => [
                 'token' => $token,
@@ -65,16 +62,13 @@ class AuthController extends Controller
     public function logout()
     {
         Auth::logout();
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Successfully logged out',
-        ]);
+
+        return CustomJsend::success();
     }
 
     public function refresh()
     {
-        return response()->json([
-            'status' => 'success',
+        return CustomJsend::success([
             'user' => Auth::user(),
             'authorisation' => [
                 'token' => Auth::refresh(),
@@ -85,7 +79,8 @@ class AuthController extends Controller
 
     public function me()
     {
-        return response()->json(Auth::user());
+        return CustomJsend::success([
+            'user' => Auth::user()]);
     }
     private function rules(): array
     {

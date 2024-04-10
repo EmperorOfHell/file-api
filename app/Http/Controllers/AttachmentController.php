@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\JSONFormatter;
+use App\Facades\CustomJsend;
 use App\Models\Attachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,20 +25,11 @@ class AttachmentController extends Controller
     public function index()
     {
         $attachments = Auth::user()->attachments()->get();
-        return response()->json([
-            'status' => 'success',
+        return CustomJsend::success([
             'attachments' => $attachments,
-
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(Request $request)
-    {
-
-    }
 
     /**
      * Store a newly created resource in storage.
@@ -44,55 +37,54 @@ class AttachmentController extends Controller
     public function store(Request $request)
     {
         $request->validate($this->createRules());
+
         $file = $request->file('file');
+
         $path = Storage::disk('local')->putFile(self::FILES_PATH, $file);
-        $fileDB = Auth::user()->attachments()->create([
+
+        $attachment = Auth::user()->attachments()->create([
             'name' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
             'size' => $file->getSize(),
             'path' => $path,
             'format' => $file->getClientOriginalExtension(),
         ]);
-        return response()->json([
-            'status' => 'success',
-            'message' => 'File uploaded successfully',
-            'file' => $fileDB,
-
+        return CustomJsend::success([
+            'attachment' => $attachment,
         ]);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Attachment $file)
+    public function show(int $id)
     {
-        if (Auth::id() !== $file->user_id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-        return response()->json(['attachment' => $file]);
+        $file = Attachment::find($id);
+
+        if (($response = $this->checkFile($file)) !== true) return $response;
+
+        return CustomJsend::success([
+            'attachment' => $file
+        ]);
     }
 
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Attachment $file)
+    public function update(Request $request, int $id)
     {
-        // Check if the authenticated user is the owner of the attachment
-        if (Auth::id() !== $file->user_id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $attachment = Attachment::find($id);
 
-        // Validate the request data
+        if (($response = $this->checkFile($attachment)) !== true) return $response;
+
         $request->validate($this->updateRules());
 
-        // Update the file record
-        $file->update([
+        $attachment->update([
             'name' => $request->name,
         ]);
 
-        return response()->json([
-            'message' => 'File updated successfully',
-            'attachment' => $file
+        return CustomJsend::success([
+            'attachment' => $attachment
         ]);
     }
 
@@ -100,30 +92,25 @@ class AttachmentController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Attachment $file)
+    public function destroy(int $id)
     {
-        // Check if the authenticated user is the owner of the attachment
-        if (Auth::id() !== $file->user_id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $file = Attachment::find($id);
 
-        // Delete the file record
+        if (($response = $this->checkFile($file)) !== true) return $response;
+
         $file->delete();
 
-        // You may also want to delete the actual file from storage if needed
-
-        return response()->json([
-            'message' => 'File deleted successfully',
-        ]);
+        return CustomJsend::success();
     }
 
-    public function download(Attachment $file)
+    public function download(int $id)
     {
-        if (Auth::id() !== $file->user_id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $file = Attachment::find($id);
+
+        if (($response = $this->checkFile($file)) !== true) return $response;
+
         if (!Storage::disk('local')->exists($file->path)) {
-            return response()->json(['error' => 'File not found'], 404);
+            return CustomJsend::error('File not found', 404);
         }
 
         // Generate a download response
@@ -134,7 +121,6 @@ class AttachmentController extends Controller
     {
         return [
             'name' => 'required|max:255',
-
         ];
     }
 
@@ -143,5 +129,14 @@ class AttachmentController extends Controller
         return [
             'file' => 'required|file|mimes:pdf,doc,docx|max:10240'
         ];
+    }
+
+    private function checkFile($file)
+    {
+        if ($file === null) return CustomJsend::error('File not found', 404);
+
+        if (Auth::id() !== $file->user_id) return CustomJsend::error('Access denied', 403);
+
+        return true;
     }
 }

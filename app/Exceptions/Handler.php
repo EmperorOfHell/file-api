@@ -2,12 +2,17 @@
 
 namespace App\Exceptions;
 
+
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
+
+use App\Facades\CustomJsend;
 
 class Handler extends ExceptionHandler
 {
@@ -27,15 +32,21 @@ class Handler extends ExceptionHandler
      */
     public function register(): void
     {
-        $this->renderable(function(TokenInvalidException $e, $request){
-            return Response::json(['error'=>'Invalid token'],401);
+        $this->renderable(function (TokenInvalidException $e, $request) {
+            return CustomJsend::error('Invalid token', 401);
         });
         $this->renderable(function (TokenExpiredException $e, $request) {
-            return Response::json(['error'=>'Token has Expired'],401);
+            return CustomJsend::error('Token has Expired', 401);
         });
 
         $this->renderable(function (JWTException $e, $request) {
-            return Response::json(['error'=>'Token not parsed'],401);
+            return CustomJsend::error('Token not parsed', 401);
+        });
+        $this->renderable(function (ThrottleRequestsException $e, $request) {
+            return CustomJsend::error('Too many requests', 429);
+        });
+        $this->renderable(function (NotFoundHttpException $e, $request) {
+            return CustomJsend::error('Not found URL', 404);
         });
     }
 }
